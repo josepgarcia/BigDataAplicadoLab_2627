@@ -18,7 +18,7 @@ Clúster Hadoop 3.4.1 (HDFS + YARN) para los bloques **03 YARN** y **04 MapReduc
 ## Requisitos
 
 - Docker y Docker Compose v2.
-- Make (opcional: todas las órdenes tienen su equivalente `docker compose`).
+- Make (opcional: todas las órdenes tienen su equivalente `docker compose`). En Windows, desde la terminal de Ubuntu (WSL2): `sudo apt install -y make`; ver [Uso en Windows 11](../README.md#uso-en-windows-11).
 - **Memoria**: el clúster ocupa unos 3,2 GB en reposo y unos 3,6 GB ejecutando un trabajo. En Docker Desktop asigna al menos 6 GB (Settings → Resources).
 - Los puertos 9870, 8088 y 9000 deben estar libres (5432 para PostgreSQL; 10000 y 10002 para Hive). Para el contenedor de los bloques 01–02 antes de empezar:
 

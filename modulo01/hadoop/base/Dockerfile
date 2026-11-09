@@ -23,6 +23,8 @@ RUN printf '\n# BDA: avisos silenciados\nlog4j.logger.org.apache.hadoop.util.Nat
     >> /opt/hadoop/etc/hadoop/log4j.properties
 
 COPY entrypoint.sh /usr/local/bin/bda-hadoop-entrypoint
-RUN chmod 0755 /usr/local/bin/bda-hadoop-entrypoint
+# Quita los CR por si el repo se clonó en Windows con finales CRLF (equivale a dos2unix)
+RUN sed -i 's/\r$//' /usr/local/bin/bda-hadoop-entrypoint \
+    && chmod 0755 /usr/local/bin/bda-hadoop-entrypoint
 
 ENTRYPOINT ["/usr/local/bin/bda-hadoop-entrypoint"]

@@ -1,0 +1,3 @@
+# Finales de línea LF en todo el repo, aunque se clone desde Windows
+# (los scripts y el Makefile se ejecutan en Linux/WSL2 y dentro de contenedores).
+* text=auto eol=lf

@@ -9,6 +9,10 @@ DOCKER_COMPOSE := $(shell \
 	elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; \
 	else echo "docker compose"; fi)
 
+# Git Bash (Windows) convierte rutas como /user/hive en C:/Program Files/Git/user/hive
+# al pasarlas a docker; esto lo desactiva. Sin efecto en Linux, macOS ni WSL.
+export MSYS_NO_PATHCONV := 1
+
 HADOOP := $(DOCKER_COMPOSE) -f hadoop/compose.yaml
 HIVE := $(DOCKER_COMPOSE) -f hive/compose.yaml
 JDBC_HIVE := jdbc:hive2://localhost:10000/default
