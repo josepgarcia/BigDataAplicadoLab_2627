@@ -4,6 +4,12 @@ Entornos Docker para las prácticas de la asignatura Big Data Aplicado (Curso de
 
 Los laboratorios se irán añadiendo a medida que avance la asignatura, un directorio por módulo.
 
+## Módulos
+
+| Módulo | Contenido | Laboratorio |
+|---|---|---|
+| [modulo01](modulo01/README.md) | Almacenamiento y ecosistema de datos | Clúster Hadoop 3.4.1: HDFS + YARN, 1 master + 3 workers (bloques 03–04) |
+
 ## Requisitos
 
 - Docker y Docker Compose

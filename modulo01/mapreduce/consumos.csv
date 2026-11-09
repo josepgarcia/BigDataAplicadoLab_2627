@@ -1,0 +1,9 @@
+equipo,turno,kwh
+E1,manana,12.5
+E2,manana,7.5
+E3,tarde,4.0
+E4,tarde,6.0
+E5,noche,-2.0
+E6,noche,10.0
+E7,manana,1001.0
+E8,noche,error

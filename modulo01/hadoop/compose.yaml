@@ -1,0 +1,111 @@
+# Clúster Hadoop de M01 (bloques 03 YARN y 04 MapReduce)
+# master: NameNode + SecondaryNameNode + ResourceManager · datanode1..3: DataNode + NodeManager
+# El nombre de proyecto "m01-yarn" fija la red m01-yarn_default, que usa Hive (bloque 07).
+name: m01-yarn
+
+x-hadoop: &hadoop
+  build:
+    context: ./base
+  image: bda-m01-hadoop:3.4.1-r2
+  stop_grace_period: 45s
+  restart: unless-stopped
+  volumes:
+    - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+    - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+    - ./conf/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+    - ./conf/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+
+services:
+  master:
+    <<: *hadoop
+    hostname: master
+    environment:
+      HADOOP_ROLE: master
+    ports:
+      - "127.0.0.1:9870:9870" # Interfaz web del NameNode (HDFS)
+      - "127.0.0.1:8088:8088" # Interfaz web del ResourceManager (YARN)
+      - "127.0.0.1:9000:9000" # RPC de HDFS (fs.defaultFS)
+    volumes:
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - master-data:/var/lib/hadoop
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9870/jmx >/dev/null && curl -fsS http://master:8088/ws/v1/cluster/info >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
+
+  datanode1:
+    <<: *hadoop
+    hostname: datanode1
+    environment:
+      HADOOP_ROLE: worker
+    depends_on:
+      master:
+        condition: service_healthy
+    volumes:
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - datanode1-data:/var/lib/hadoop
+    healthcheck:
+      # Sano = DataNode y NodeManager activos y NameNode fuera del modo seguro (HDFS admite escrituras)
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:9864/jmx >/dev/null && curl -fsS http://localhost:8042/ws/v1/node/info >/dev/null && curl -fsS "http://master:9870/jmx?qry=Hadoop:service=NameNode,name=NameNodeInfo" | grep -q "\"Safemode\" : \"\""']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
+
+  datanode2:
+    <<: *hadoop
+    hostname: datanode2
+    environment:
+      HADOOP_ROLE: worker
+    depends_on:
+      master:
+        condition: service_healthy
+    volumes:
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - datanode2-data:/var/lib/hadoop
+    healthcheck:
+      # Sano = DataNode y NodeManager activos y NameNode fuera del modo seguro (HDFS admite escrituras)
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:9864/jmx >/dev/null && curl -fsS http://localhost:8042/ws/v1/node/info >/dev/null && curl -fsS "http://master:9870/jmx?qry=Hadoop:service=NameNode,name=NameNodeInfo" | grep -q "\"Safemode\" : \"\""']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
+
+  datanode3:
+    <<: *hadoop
+    hostname: datanode3
+    environment:
+      HADOOP_ROLE: worker
+    depends_on:
+      master:
+        condition: service_healthy
+    volumes:
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - datanode3-data:/var/lib/hadoop
+    healthcheck:
+      # Sano = DataNode y NodeManager activos y NameNode fuera del modo seguro (HDFS admite escrituras)
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:9864/jmx >/dev/null && curl -fsS http://localhost:8042/ws/v1/node/info >/dev/null && curl -fsS "http://master:9870/jmx?qry=Hadoop:service=NameNode,name=NameNodeInfo" | grep -q "\"Safemode\" : \"\""']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
+
+volumes:
+  master-data:
+  datanode1-data:
+  datanode2-data:
+  datanode3-data:
