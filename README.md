@@ -1,3 +1,12 @@
+```
+ ____  ____    _      _           _
+| __ )|  _ \  / \    | |    __ _ | |__
+|  _ \| | | |/ _ \   | |   / _` || '_ \
+| |_) | |_| / ___ \  | |__| (_| || |_) |
+|____/|____/_/   \_\ |_____\__,_||_.__/
+                                2026/27
+```
+
 # Big Data Aplicado - Laboratorio 2026/27
 
 Entornos Docker para las prácticas de la asignatura Big Data Aplicado (Curso de Especialización en Inteligencia Artificial y Big Data, curso 2026/2027).
