@@ -1,0 +1,11 @@
+# Modo mini para equipos con poca memoria: se combina con compose.yaml y se levantan
+# solo master + datanode1 (make up-mini). Réplica 1, porque solo hay un DataNode.
+# Mismo proyecto, volúmenes y red que el modo completo: Hive (bloque 07) funciona igual
+# y se puede volver al clúster completo con make up sin perder datos.
+services:
+  master:
+    volumes:
+      - ./conf/hdfs-site-mini.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+  datanode1:
+    volumes:
+      - ./conf/hdfs-site-mini.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro

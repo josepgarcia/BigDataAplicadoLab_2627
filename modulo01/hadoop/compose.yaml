@@ -1,6 +1,7 @@
 # Clúster Hadoop de M01 (bloques 03 YARN y 04 MapReduce)
 # master: NameNode + SecondaryNameNode + ResourceManager · datanode1..3: DataNode + NodeManager
 # El nombre de proyecto "m01-yarn" fija la red m01-yarn_default, que usa Hive (bloque 07).
+# Modo mini (make up-mini): solo master + datanode1 con réplica 1, ver compose.mini.yaml.
 name: m01-yarn
 
 x-hadoop: &hadoop
@@ -21,6 +22,14 @@ services:
     hostname: master
     environment:
       HADOOP_ROLE: master
+      # Heap de cada proceso: sin límite, Java reserva hasta 1/4 de la RAM del equipo
+      HDFS_NAMENODE_OPTS: -Xmx384m
+      HDFS_SECONDARYNAMENODE_OPTS: -Xmx256m
+      YARN_RESOURCEMANAGER_OPTS: -Xmx384m
+    deploy:
+      resources:
+        limits:
+          memory: 1536m
     ports:
       - "127.0.0.1:9870:9870" # Interfaz web del NameNode (HDFS)
       - "127.0.0.1:8088:8088" # Interfaz web del ResourceManager (YARN)
@@ -41,8 +50,15 @@ services:
   datanode1:
     <<: *hadoop
     hostname: datanode1
-    environment:
+    environment: &worker-env
       HADOOP_ROLE: worker
+      HDFS_DATANODE_OPTS: -Xmx256m
+      YARN_NODEMANAGER_OPTS: -Xmx256m
+    deploy: &worker-deploy
+      resources:
+        limits:
+          # DataNode + NodeManager (~0,7 GB) + contenedores YARN (yarn-site.xml: 1536 MB)
+          memory: 2304m
     depends_on:
       master:
         condition: service_healthy
@@ -63,8 +79,8 @@ services:
   datanode2:
     <<: *hadoop
     hostname: datanode2
-    environment:
-      HADOOP_ROLE: worker
+    environment: *worker-env
+    deploy: *worker-deploy
     depends_on:
       master:
         condition: service_healthy
@@ -85,8 +101,8 @@ services:
   datanode3:
     <<: *hadoop
     hostname: datanode3
-    environment:
-      HADOOP_ROLE: worker
+    environment: *worker-env
+    deploy: *worker-deploy
     depends_on:
       master:
         condition: service_healthy

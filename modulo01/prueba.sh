@@ -1,5 +1,5 @@
 #!/bin/bash
-# Prueba de humo del clúster de M01: HDFS con 3 DataNodes, wordcount en YARN
+# Prueba de humo del clúster de M01: HDFS con 3 DataNodes (1 en modo mini), wordcount en YARN
 # (M01-YARN-01) y Hadoop Streaming con Python (M01-MR-01).
 # Se ejecuta en el ANFITRIÓN, con el clúster levantado (make up).
 # Escribe solo bajo /pruebas/<fecha> en HDFS: no toca /datos del alumnado.
@@ -30,11 +30,14 @@ comprobar() {
     fi
 }
 
-echo "🧪 1/3 HDFS y YARN: nodos vivos"
+# Nodos esperados = réplica configurada: 3 en el clúster completo (make up), 1 en el mini (make up-mini)
+NODOS="$(en_master "hdfs getconf -confKey dfs.replication 2>/dev/null")"
+
+echo "🧪 1/3 HDFS y YARN: nodos vivos (esperados: ${NODOS})"
 DATANODES="$(en_master "hdfs dfsadmin -report 2>/dev/null | grep -oP 'Live datanodes \(\K[0-9]+'")"
 NODEMANAGERS="$(en_master "yarn node -list 2>/dev/null | grep -oP 'Total Nodes:\K[0-9]+'")"
-comprobar "DataNodes vivos = 3" "$DATANODES" "3"
-comprobar "NodeManagers = 3" "$NODEMANAGERS" "3"
+comprobar "DataNodes vivos = ${NODOS}" "$DATANODES" "$NODOS"
+comprobar "NodeManagers = ${NODOS}" "$NODEMANAGERS" "$NODOS"
 
 echo "🧪 2/3 wordcount en YARN (M01-YARN-01)"
 SALIDA_WC="$(en_master "

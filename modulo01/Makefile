@@ -1,4 +1,4 @@
-.PHONY: help build up down clean status report shell shell-root logs copiar-mapreduce test \
+.PHONY: help build up up-mini reiniciar-hive-si-cambia down clean status report shell shell-root logs copiar-mapreduce test \
 	hive-up hive-beeline hive-recorrido hive-logs hive-down hive-clean test-hive \
 	formatos formatos-shell test-formatos \
 	pg-up pg-psql pg-dump pg-restore pg-down pg-clean test-pg
@@ -14,6 +14,7 @@ DOCKER_COMPOSE := $(shell \
 export MSYS_NO_PATHCONV := 1
 
 HADOOP := $(DOCKER_COMPOSE) -f hadoop/compose.yaml
+HADOOP_MINI := $(HADOOP) -f hadoop/compose.mini.yaml
 HIVE := $(DOCKER_COMPOSE) -f hive/compose.yaml
 JDBC_HIVE := jdbc:hive2://localhost:10000/default
 FORMATOS := $(DOCKER_COMPOSE) -f formatos/compose.yaml
@@ -31,10 +32,32 @@ build: ## Construir la imagen bda-m01-hadoop:3.4.1-r3
 
 up: ## Levantar el clúster (master + datanode1..3) y esperar a que esté sano
 	@echo "🚀 Levantando clúster Hadoop (1 master + 3 workers)..."
-	$(HADOOP) up -d --build --wait
+	@MASTER_ANTES="$$($(HADOOP) ps -q master 2>/dev/null)"; \
+	$(HADOOP) up -d --wait && \
+	$(MAKE) --no-print-directory reiniciar-hive-si-cambia MASTER_ANTES="$$MASTER_ANTES"
 	@echo "✅ Clúster listo"
 	@echo "📊 HDFS (NameNode):      http://localhost:9870"
 	@echo "📊 YARN (ResourceManager): http://localhost:8088"
+
+up-mini: ## Clúster mínimo para equipos con poca memoria: master + datanode1, réplica 1
+	@echo "🚀 Levantando clúster Hadoop mínimo (1 master + 1 worker, réplica 1)..."
+	@MASTER_ANTES="$$($(HADOOP) ps -q master 2>/dev/null)"; \
+	$(HADOOP) rm -sf datanode2 datanode3 && \
+	$(HADOOP_MINI) up -d --wait master datanode1 && \
+	$(MAKE) --no-print-directory reiniciar-hive-si-cambia MASTER_ANTES="$$MASTER_ANTES"
+	@echo "✅ Clúster mínimo listo (para volver al completo: make up)"
+	@echo "📊 HDFS (NameNode):      http://localhost:9870"
+	@echo "📊 YARN (ResourceManager): http://localhost:8088"
+
+# Auxiliar (sin ##, no sale en make help). Si el master se ha recreado (p. ej. al cambiar
+# entre make up y make up-mini) con Hive en marcha, HiveServer2 conserva conexiones a nodos
+# que ya no existen y cada consulta tarda minutos: se reinicia Hive (el metastore se conserva).
+reiniciar-hive-si-cambia:
+	@if [ -n "$$($(HIVE) ps -q hiveserver2 2>/dev/null)" ] && \
+	    [ "$(MASTER_ANTES)" != "$$($(HADOOP) ps -q master)" ]; then \
+		echo "🔄 El clúster ha cambiado: reiniciando Hive..."; \
+		$(HIVE) up -d --force-recreate --wait; \
+	fi
 
 down: ## Parar todos los servicios del módulo (conserva HDFS, el metastore y PostgreSQL)
 	@echo "⏹️  Parando PostgreSQL, Hive y el clúster (los volúmenes se conservan)..."
@@ -71,10 +94,10 @@ copiar-mapreduce: ## Copiar mapreduce/ a /home/hadoop/trabajo en master (bloque 
 	$(HADOOP) exec --user root master chown -R hadoop:hadoop /home/hadoop/trabajo
 	@echo "✅ Ficheros en master:/home/hadoop/trabajo"
 
-test: ## Prueba de humo: 3 nodos, wordcount en YARN y Streaming con Python
+test: ## Prueba de humo: nodos vivos (3, o 1 en modo mini), wordcount en YARN y Streaming con Python
 	@bash prueba.sh
 
-hive-up: ## Bloque 07: preparar /user/hive en HDFS y levantar HiveServer2 (requiere make up)
+hive-up: ## Bloque 07: preparar /user/hive en HDFS y levantar HiveServer2 (requiere make up o make up-mini)
 	@echo "📦 Preparando directorios de Hive en HDFS (como hadoop)..."
 	$(HADOOP) exec --user hadoop master hdfs dfs -mkdir -p /user/hive/warehouse /user/hive/external /tmp
 	$(HADOOP) exec --user hadoop master hdfs dfs -chown -R hive /user/hive

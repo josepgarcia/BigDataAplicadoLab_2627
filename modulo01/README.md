@@ -12,6 +12,7 @@ Clúster Hadoop 3.4.1 (HDFS + YARN) para los bloques **03 YARN** y **04 MapReduc
 
 - Imagen `bda-m01-hadoop:3.4.1-r3`: Java 11, Hadoop 3.4.1, Python 3 (para Hadoop Streaming) y utilidades (`sudo` sin contraseña para `hadoop`, `vim`, `nano`, `less`, `tree`, `ping`, `nc`).
 - Réplica HDFS 3. Cada nodo guarda sus datos en un volumen propio.
+- Memoria acotada para equipos modestos: heap fijo por proceso y contenedores YARN de 512 MB (cada worker ofrece 1536 MB a YARN). Para equipos con menos memoria hay un [modo mini](#modo-mini-equipos-con-poca-memoria).
 - Sin SSH: cada contenedor arranca sus procesos según `HADOOP_ROLE`. El NameNode se formatea solo la primera vez.
 - Puertos publicados solo en `127.0.0.1`.
 
@@ -19,7 +20,7 @@ Clúster Hadoop 3.4.1 (HDFS + YARN) para los bloques **03 YARN** y **04 MapReduc
 
 - Docker y Docker Compose v2.
 - Make (opcional: todas las órdenes tienen su equivalente `docker compose`). En Windows, desde la terminal de Ubuntu (WSL2): `sudo apt install -y make`; ver [Uso en Windows 11](../README.md#uso-en-windows-11).
-- **Memoria**: el clúster ocupa unos 3,2 GB en reposo y unos 3,6 GB ejecutando un trabajo. En Docker Desktop asigna al menos 6 GB (Settings → Resources).
+- **Memoria**: el clúster ocupa unos 1,9 GB en reposo y unos 2,7 GB ejecutando un trabajo. En Docker Desktop asigna al menos 4 GB (Settings → Resources). Si no llegas, usa el [modo mini](#modo-mini-equipos-con-poca-memoria) (~1 GB en reposo).
 - Los puertos 9870, 8088 y 9000 deben estar libres (5432 para PostgreSQL; 10000 y 10002 para Hive). Para el contenedor de los bloques 01–02 antes de empezar:
 
 ```bash
@@ -31,11 +32,12 @@ docker stop --time 45 hadoop-manual
 Desde esta carpeta (`modulo01/`):
 
 ```bash
-make up        # construye la imagen, levanta los 4 servicios y espera a que estén sanos
+make up        # construye la imagen (la primera vez), levanta los 4 servicios y espera a que estén sanos
 make report    # hdfs dfsadmin -report + yarn node -list
 make shell     # shell en master como usuario hadoop (con sudo)
 make shell-root # shell en master como root
-make test      # prueba de humo: 3 nodos, wordcount en YARN y Streaming con Python
+make test      # prueba de humo: nodos vivos, wordcount en YARN y Streaming con Python
+make up-mini   # alternativa con poca memoria: master + 1 worker (ver Modo mini)
 make down      # para todos los servicios del módulo (clúster, Hive, PostgreSQL) conservando los datos
 make help      # todas las opciones
 ```
@@ -43,7 +45,7 @@ make help      # todas las opciones
 Equivalentes sin Make:
 
 ```bash
-docker compose -f hadoop/compose.yaml up -d --build --wait
+docker compose -f hadoop/compose.yaml up -d --wait
 docker compose -f hadoop/compose.yaml exec --user hadoop master hdfs dfsadmin -report
 docker compose -f hadoop/compose.yaml exec --user hadoop master yarn node -list
 docker compose -f hadoop/compose.yaml exec --user hadoop master bash
@@ -53,6 +55,28 @@ docker compose -f hadoop/compose.yaml down
 `up --wait` termina cuando los cuatro servicios están sanos. Un worker solo se considera sano si su DataNode y su NodeManager responden **y** el NameNode ha salido del modo seguro, de modo que HDFS ya admite escrituras.
 
 Interfaces web: HDFS en <http://localhost:9870> y YARN en <http://localhost:8088>. Los enlaces internos (`master`, `datanode1`…) que aparecen en ellas no se resuelven desde el navegador del anfitrión.
+
+### Modo mini (equipos con poca memoria)
+
+`make up-mini` levanta solo `master` y `datanode1`, con réplica HDFS 1 (`hadoop/compose.mini.yaml` + `hadoop/conf/hdfs-site-mini.xml`).
+
+| Modo | Orden | En reposo | Ejecutando `make test` |
+|---|---|---|---|
+| Completo (1 master + 3 workers, réplica 3) | `make up` | ~1,9 GB | ~2,7 GB |
+| Mini (1 master + 1 worker, réplica 1) | `make up-mini` | ~1 GB | ~1,4 GB |
+
+Medido con `docker stats`; Hive suma alrededor de 1 GB más.
+
+- Todo lo demás funciona igual: `make report`, `shell`, `test` (detecta el modo y espera 1 nodo), `hive-up`, `down`…
+- Lo que **no** se ve en modo mini: la réplica de bloques entre nodos y el reparto de tareas entre trabajadores. `dfsadmin -report`, `yarn node -list` y la web muestran un solo nodo.
+- Se puede cambiar de modo sin perder datos: los volúmenes son los mismos. Los ficheros creados en modo completo aparecen en el mini como *under-replicated* (sin pérdida), y los creados en el mini conservan réplica 1 al volver con `make up`.
+
+Equivalente sin Make:
+
+```bash
+docker compose -f hadoop/compose.yaml rm -sf datanode2 datanode3
+docker compose -f hadoop/compose.yaml -f hadoop/compose.mini.yaml up -d --wait master datanode1
+```
 
 ### Subir ficheros a HDFS
 
@@ -131,7 +155,7 @@ Si el puerto 5432 está ocupado por un PostgreSQL instalado en el equipo, para e
 Hive es un Compose aparte (`hive/compose.yaml`, proyecto `m01-hive`) que se une a la red del clúster (`m01-yarn_default`): **levanta antes el clúster** con `make up`. Guarda las tablas en HDFS (`/user/hive/...`) y el catálogo en un metastore Derby con volumen propio. Las consultas se ejecutan con **MapReduce local dentro de HiveServer2**, no en YARN: en este bloque se estudian SQL y almacenamiento.
 
 ```bash
-make up              # clúster Hadoop (si no está levantado)
+make up              # clúster Hadoop (si no está levantado; o make up-mini)
 make hive-up         # prepara /user/hive y /tmp en HDFS y levanta HiveServer2
 make hive-beeline    # Beeline en HiveServer2 (salir con !quit)
 make hive-recorrido  # ejecuta hive/sql/recorrido.sql: crea o sobrescribe la base m01_empresa
@@ -188,7 +212,7 @@ modulo01/
 └── mapreduce/            # datos y scripts del bloque 04
 ```
 
-Si cambias algo en `hadoop/conf/`, recrea los servicios con `make down && make up`. Si cambias `hadoop/base/`, `make up` reconstruye la imagen.
+Si cambias algo en `hadoop/conf/`, recrea los servicios con `make down && make up`. Si cambias `hadoop/base/`, reconstruye la imagen con `make build` y después `make up`.
 
 ## Comportamientos que conviene conocer
 
