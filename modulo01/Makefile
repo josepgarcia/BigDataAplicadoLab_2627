@@ -1,4 +1,4 @@
-.PHONY: help build up down clean status report shell logs copiar-mapreduce test \
+.PHONY: help build up down clean status report shell shell-root logs copiar-mapreduce test \
 	hive-up hive-beeline hive-recorrido hive-logs hive-down hive-clean test-hive \
 	formatos formatos-shell test-formatos \
 	pg-up pg-psql pg-dump pg-restore pg-down pg-clean test-pg
@@ -58,6 +58,9 @@ report: ## Informe de HDFS (dfsadmin -report) y nodos YARN
 
 shell: ## Abrir una shell en master como usuario hadoop
 	$(HADOOP) exec --user hadoop master bash
+
+shell-root: ## Abrir una shell en master como root (dentro de make shell también vale sudo)
+	$(HADOOP) exec --user root master bash
 
 logs: ## Ver los últimos registros de todos los servicios
 	$(HADOOP) logs --tail=50

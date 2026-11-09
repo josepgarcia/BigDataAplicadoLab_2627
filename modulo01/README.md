@@ -10,7 +10,7 @@ Clúster Hadoop 3.4.1 (HDFS + YARN) para los bloques **03 YARN** y **04 MapReduc
 | `postgres-vector` (bloque 06, aparte) | PostgreSQL 17 + pgvector 0.8.1 | 5432 |
 | `hiveserver2` (bloque 07, aparte) | HiveServer2 + metastore Derby | 10000 (JDBC), 10002 (web Hive) |
 
-- Imagen `bda-m01-hadoop:3.4.1-r3`: Java 11, Hadoop 3.4.1 y Python 3 (para Hadoop Streaming).
+- Imagen `bda-m01-hadoop:3.4.1-r3`: Java 11, Hadoop 3.4.1, Python 3 (para Hadoop Streaming) y utilidades (`sudo` sin contraseña para `hadoop`, `vim`, `nano`, `less`, `tree`, `ping`, `nc`).
 - Réplica HDFS 3. Cada nodo guarda sus datos en un volumen propio.
 - Sin SSH: cada contenedor arranca sus procesos según `HADOOP_ROLE`. El NameNode se formatea solo la primera vez.
 - Puertos publicados solo en `127.0.0.1`.
@@ -33,7 +33,8 @@ Desde esta carpeta (`modulo01/`):
 ```bash
 make up        # construye la imagen, levanta los 4 servicios y espera a que estén sanos
 make report    # hdfs dfsadmin -report + yarn node -list
-make shell     # shell en master como usuario hadoop
+make shell     # shell en master como usuario hadoop (con sudo)
+make shell-root # shell en master como root
 make test      # prueba de humo: 3 nodos, wordcount en YARN y Streaming con Python
 make down      # para todos los servicios del módulo (clúster, Hive, PostgreSQL) conservando los datos
 make help      # todas las opciones

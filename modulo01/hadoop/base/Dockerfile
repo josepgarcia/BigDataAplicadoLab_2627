@@ -6,11 +6,16 @@ ENV HADOOP_HOME=/opt/hadoop \
     JAVA_HOME=/opt/java/openjdk \
     PATH=/opt/hadoop/bin:/opt/hadoop/sbin:${PATH}
 
+# Utilidades para el alumnado (sudo, editores, paginador, red).
+# Entorno de laboratorio: hadoop puede usar sudo sin contraseña.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends bash ca-certificates curl procps python3 \
+    && apt-get install -y --no-install-recommends sudo vim nano less tree iputils-ping netcat-openbsd \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system hadoop \
     && useradd --create-home --shell /bin/bash --gid hadoop hadoop \
+    && echo 'hadoop ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/hadoop \
+    && chmod 0440 /etc/sudoers.d/hadoop \
     && mkdir -p /var/lib/hadoop/namenode /var/lib/hadoop/datanode /home/hadoop/trabajo \
     && chown -R hadoop:hadoop /var/lib/hadoop /home/hadoop/trabajo
 
