@@ -1,11 +1,12 @@
 # Módulo 01 - Almacenamiento y ecosistema de datos
 
-Clúster Hadoop 3.4.1 (HDFS + YARN) para los bloques **03 YARN** y **04 MapReduce** de M01. Los bloques 01 y 02 se trabajan con la instalación manual descrita en los apuntes.
+Clúster Hadoop 3.4.1 (HDFS + YARN) para los bloques **03 YARN** y **04 MapReduce** de M01, y Hive 4.0.1 sobre ese mismo HDFS para el bloque **07 Hive**. Los bloques 01 y 02 se trabajan con la instalación manual descrita en los apuntes.
 
 | Servicio | Procesos | Puertos en el anfitrión |
 |---|---|---|
 | `master` | NameNode, SecondaryNameNode, ResourceManager | 9870 (web HDFS), 8088 (web YARN), 9000 (RPC HDFS) |
 | `datanode1`, `datanode2`, `datanode3` | DataNode + NodeManager | — |
+| `hiveserver2` (bloque 07, aparte) | HiveServer2 + metastore Derby | 10000 (JDBC), 10002 (web Hive) |
 
 - Imagen `bda-m01-hadoop:3.4.1-r3`: Java 11, Hadoop 3.4.1 y Python 3 (para Hadoop Streaming).
 - Réplica HDFS 3. Cada nodo guarda sus datos en un volumen propio.
@@ -17,7 +18,7 @@ Clúster Hadoop 3.4.1 (HDFS + YARN) para los bloques **03 YARN** y **04 MapReduc
 - Docker y Docker Compose v2.
 - Make (opcional: todas las órdenes tienen su equivalente `docker compose`).
 - **Memoria**: el clúster ocupa unos 3,2 GB en reposo y unos 3,6 GB ejecutando un trabajo. En Docker Desktop asigna al menos 6 GB (Settings → Resources).
-- Los puertos 9870, 8088 y 9000 deben estar libres. Para el contenedor de los bloques 01–02 antes de empezar:
+- Los puertos 9870, 8088 y 9000 deben estar libres (y 10000 y 10002 para Hive). Para el contenedor de los bloques 01–02 antes de empezar:
 
 ```bash
 docker stop --time 45 hadoop-manual
@@ -75,16 +76,55 @@ Después el fichero aparece en el explorador web.
 make copiar-mapreduce
 ```
 
+### Hive (bloque 07)
+
+Hive es un Compose aparte (`hive/compose.yaml`, proyecto `m01-hive`) que se une a la red del clúster (`m01-yarn_default`): **levanta antes el clúster** con `make up`. Guarda las tablas en HDFS (`/user/hive/...`) y el catálogo en un metastore Derby con volumen propio. Las consultas se ejecutan con **MapReduce local dentro de HiveServer2**, no en YARN: en este bloque se estudian SQL y almacenamiento.
+
+```bash
+make up              # clúster Hadoop (si no está levantado)
+make hive-up         # prepara /user/hive y /tmp en HDFS y levanta HiveServer2
+make hive-beeline    # Beeline en HiveServer2 (salir con !quit)
+make hive-recorrido  # ejecuta hive/sql/recorrido.sql: crea o sobrescribe la base m01_empresa
+make test-hive       # prueba de humo en una base temporal (no toca m01_empresa)
+make hive-down       # para Hive y conserva el catálogo
+```
+
+Equivalentes sin Make:
+
+```bash
+docker compose -f hadoop/compose.yaml exec --user hadoop master hdfs dfs -mkdir -p /user/hive/warehouse /user/hive/external /tmp
+docker compose -f hadoop/compose.yaml exec --user hadoop master hdfs dfs -chown -R hive /user/hive
+docker compose -f hadoop/compose.yaml exec --user hadoop master hdfs dfs -chmod 1777 /tmp
+docker compose -f hive/compose.yaml up -d --build --wait
+docker compose -f hive/compose.yaml exec hiveserver2 beeline -u 'jdbc:hive2://localhost:10000/default' -n hive
+docker compose -f hive/compose.yaml logs --tail=80 hiveserver2
+docker compose -f hive/compose.yaml down
+```
+
+- **Apple Silicon**: la imagen oficial `apache/hive:4.0.1` solo existe para amd64 y se ejecuta emulada. Funciona, pero tarda más en arrancar (el `healthcheck` puede llevar 1–2 minutos) y la primera vez descarga cerca de 1 GB.
+- **Memoria**: HiveServer2 ocupa alrededor de 1 GB (límite 2 GB) además del clúster.
+- `hive/datos/` se monta en `/datos-entrada` (solo lectura) y `hive/sql/` en `/sql`.
+- **Orden de parada**: primero Hive y después el clúster. `make down` ya lo hace así.
+- Derby y HDFS son almacenes distintos: `make hive-clean` borra el catálogo pero **no** los ficheros de `/user/hive` en HDFS, y `make clean` borra ambos.
+- Ajustes de `hive/conf/hive-site.xml` propios del laboratorio: tablas gestionadas clásicas no ACID (transformador de metadatos vacío, HIVE-28198) y sin conversión automática a map-join (HIVE-13764). El valor del transformador es un espacio (`<value> </value>`), no un elemento vacío. Tras cambiar la configuración: `make hive-down hive-up`.
+
 ## Estructura
 
 ```
 modulo01/
 ├── Makefile
 ├── prueba.sh             # prueba de humo (make test)
+├── prueba-hive.sh        # prueba de humo de Hive (make test-hive)
 ├── hadoop/
 │   ├── compose.yaml      # proyecto m01-yarn
 │   ├── base/             # Dockerfile + entrypoint.sh (arranque por roles)
 │   └── conf/             # core-site, hdfs-site, mapred-site, yarn-site (montados en solo lectura)
+├── hive/
+│   ├── compose.yaml      # proyecto m01-hive, red externa m01-yarn_default
+│   ├── Dockerfile        # apache/hive:4.0.1 + directorios de trabajo
+│   ├── conf/             # core-site, hive-site, mapred-site (montados en solo lectura)
+│   ├── datos/            # empleados.csv → /datos-entrada
+│   └── sql/              # recorrido.sql → /sql
 └── mapreduce/            # datos y scripts del bloque 04
 ```
 
@@ -104,12 +144,13 @@ Los cuatro contenedores comparten CPU, memoria y disco del mismo equipo. Por tan
 
 - aumento real de capacidad ni de rendimiento al añadir nodos;
 - tolerancia a la caída del equipo anfitrión o del disco físico;
-- alta disponibilidad del NameNode, que aquí es un punto único de fallo.
+- alta disponibilidad del NameNode, que aquí es un punto único de fallo;
+- rendimiento de Hive ni ejecución distribuida de sus consultas: usa MapReduce local y un metastore Derby de una sola instancia (en producción, un metastore compartido con MySQL o PostgreSQL).
 
 ## Limpieza
 
 ```bash
-make clean   # docker compose down -v
+make clean   # docker compose down -v (Hive y clúster)
 ```
 
-⚠️ Borra los volúmenes: se pierden el NameNode formateado y todos los ficheros de HDFS. No lo uses para diagnosticar problemas; usa antes `make down` y `make up`.
+⚠️ Borra los volúmenes: se pierden el NameNode formateado, todos los ficheros de HDFS y el catálogo de Hive. No lo uses para diagnosticar problemas; usa antes `make down` y `make up`.

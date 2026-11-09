@@ -1,0 +1,45 @@
+# Hive de M01 (bloque 07): HiveServer2 con metastore Derby embebido
+# Se une a la red del clúster Hadoop (proyecto m01-yarn): levantar antes "make up".
+# Los datos de las tablas van a HDFS (hdfs://master:9000); el catálogo, al volumen metastore-data.
+name: m01-hive
+
+services:
+  hiveserver2:
+    build: .
+    image: bda-m01-hive:4.0.1-r2
+    # La imagen oficial 4.0.1 solo existe para amd64: en Apple Silicon se ejecuta por emulación.
+    platform: linux/amd64
+    hostname: hiveserver2
+    environment:
+      SERVICE_NAME: hiveserver2
+      DB_DRIVER: derby
+      HIVE_CUSTOM_CONF_DIR: /hive_custom_conf
+    ports:
+      - "127.0.0.1:10000:10000" # JDBC de HiveServer2 (Beeline y clientes SQL)
+      - "127.0.0.1:10002:10002" # Interfaz web de HiveServer2
+    volumes:
+      - ./conf:/hive_custom_conf:ro
+      - ./datos:/datos-entrada:ro
+      - ./sql:/sql:ro
+      - metastore-data:/opt/hive/data
+    networks:
+      - hadoop
+    stop_grace_period: 45s
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+    healthcheck:
+      test: ["CMD-SHELL", "beeline -u 'jdbc:hive2://localhost:10000/default' -n hive --silent=true -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 20s
+      retries: 20
+      start_period: 60s
+
+networks:
+  hadoop:
+    external: true
+    name: m01-yarn_default
+
+volumes:
+  metastore-data:
