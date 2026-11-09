@@ -23,7 +23,6 @@ Los laboratorios se irán añadiendo a medida que avance la asignatura, un direc
 
 - Docker y Docker Compose
 - Make
-- `wget` (macOS: `brew install wget`)
 - Windows 11: ver [Uso en Windows 11](#uso-en-windows-11).
 
 ## Uso en Windows 11
@@ -56,7 +55,7 @@ wsl.exe --install Ubuntu-22.04
 ```bash
 # Abrir la terminal de WSL (Ubuntu) e instalar las dependencias
 sudo apt update
-sudo apt install make wget git
+sudo apt install make git
 
 # Clonar el repositorio
 cd ~
