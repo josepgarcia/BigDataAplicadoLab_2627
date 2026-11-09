@@ -50,6 +50,23 @@ docker compose -f hadoop/compose.yaml down
 
 Interfaces web: HDFS en <http://localhost:9870> y YARN en <http://localhost:8088>. Los enlaces internos (`master`, `datanode1`…) que aparecen en ellas no se resuelven desde el navegador del anfitrión.
 
+### Subir ficheros a HDFS
+
+La interfaz web sirve para **consultar** HDFS. Subir desde *Utilities → Browse the file system* falla con `Couldn't upload the file`, por dos motivos:
+
+- WebHDFS redirige el contenido al DataNode (`http://datanodeN:9864/...`). Ese nombre y ese puerto solo existen dentro de la red de Docker: el navegador no los alcanza.
+- La web actúa como el usuario anónimo `dr.who`, que no tiene permiso de escritura en HDFS (`/` pertenece a `hadoop`, 755). Se mantienen los permisos HDFS a propósito.
+
+Para subir un fichero del anfitrión, primero cópialo al contenedor y después súbelo a HDFS como `hadoop`:
+
+```bash
+docker compose -f hadoop/compose.yaml cp mi-fichero.csv master:/tmp/
+docker compose -f hadoop/compose.yaml exec --user hadoop master hdfs dfs -mkdir -p /datos
+docker compose -f hadoop/compose.yaml exec --user hadoop master hdfs dfs -put /tmp/mi-fichero.csv /datos/
+```
+
+Después el fichero aparece en el explorador web.
+
 ### Ficheros del bloque 04 (MapReduce)
 
 `mapreduce/` contiene los CSV de práctica y los scripts `mapper_ventas.py` / `reducer_ventas.py`. Para copiarlos a `master:/home/hadoop/trabajo`:
