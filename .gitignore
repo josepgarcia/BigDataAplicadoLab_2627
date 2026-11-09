@@ -1,0 +1,28 @@
+# Referencia local del curso 2025/26 (clon independiente, no se publica)
+referencia-2526/
+
+# Caché de descargas (tarballs Apache, etc.)
+**/downloads/
+
+# Entornos y secretos
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+*.iml
+.vscode/
+
+# Logs
+*.log
