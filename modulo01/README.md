@@ -7,7 +7,7 @@ Clúster Hadoop 3.4.1 (HDFS + YARN) para los bloques **03 YARN** y **04 MapReduc
 | `master` | NameNode, SecondaryNameNode, ResourceManager | 9870 (web HDFS), 8088 (web YARN), 9000 (RPC HDFS) |
 | `datanode1`, `datanode2`, `datanode3` | DataNode + NodeManager | — |
 
-- Imagen `bda-m01-hadoop:3.4.1-r2`: Java 11, Hadoop 3.4.1 y Python 3 (para Hadoop Streaming).
+- Imagen `bda-m01-hadoop:3.4.1-r3`: Java 11, Hadoop 3.4.1 y Python 3 (para Hadoop Streaming).
 - Réplica HDFS 3. Cada nodo guarda sus datos en un volumen propio.
 - Sin SSH: cada contenedor arranca sus procesos según `HADOOP_ROLE`. El NameNode se formatea solo la primera vez.
 - Puertos publicados solo en `127.0.0.1`.

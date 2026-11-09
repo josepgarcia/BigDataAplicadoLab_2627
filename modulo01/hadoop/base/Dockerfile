@@ -16,6 +16,12 @@ RUN apt-get update \
 
 COPY --from=distribucion --chown=hadoop:hadoop /opt/hadoop /opt/hadoop
 
+# Silencia dos avisos sin efecto práctico en las órdenes de cliente:
+# - NativeCodeLoader: las librerías nativas son amd64; en ARM (Mac Apple Silicon) se usa la versión Java.
+# - DefaultNoHARMFailoverProxyProvider: "Connecting to ResourceManager..." en cada orden yarn/mapred.
+RUN printf '\n# BDA: avisos silenciados\nlog4j.logger.org.apache.hadoop.util.NativeCodeLoader=ERROR\nlog4j.logger.org.apache.hadoop.yarn.client.DefaultNoHARMFailoverProxyProvider=WARN\n' \
+    >> /opt/hadoop/etc/hadoop/log4j.properties
+
 COPY entrypoint.sh /usr/local/bin/bda-hadoop-entrypoint
 RUN chmod 0755 /usr/local/bin/bda-hadoop-entrypoint
 

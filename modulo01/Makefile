@@ -13,7 +13,7 @@ help: ## Mostrar esta ayuda
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-build: ## Construir la imagen bda-m01-hadoop:3.4.1-r2
+build: ## Construir la imagen bda-m01-hadoop:3.4.1-r3
 	@echo "🔨 Construyendo imagen..."
 	$(HADOOP) build
 
