@@ -26,3 +26,20 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Instrucciones y configuración de agentes de IA (uso local, no se publican)
+AGENTS.md
+CLAUDE.md
+CLAUDE.local.md
+GEMINI.md
+.claude/
+.agent
+.agents/
+.gemini/
+.codex/
+.cursor/
+.cursorrules
+.windsurfrules
+.github/copilot-instructions.md
+.aider*
+graphify-out/
