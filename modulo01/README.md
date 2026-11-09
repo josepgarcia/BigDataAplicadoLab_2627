@@ -1,11 +1,13 @@
 # Módulo 01 - Almacenamiento y ecosistema de datos
 
-Clúster Hadoop 3.4.1 (HDFS + YARN) para los bloques **03 YARN** y **04 MapReduce** de M01, y Hive 4.0.1 sobre ese mismo HDFS para el bloque **07 Hive**. Los bloques 01 y 02 se trabajan con la instalación manual descrita en los apuntes.
+Clúster Hadoop 3.4.1 (HDFS + YARN) para los bloques **03 YARN** y **04 MapReduce** de M01, un entorno Python para el bloque **05 Formatos de datos**, PostgreSQL + pgvector para el bloque **06 PostgreSQL** y Hive 4.0.1 sobre el HDFS del clúster para el bloque **07 Hive**. Los bloques 01 y 02 se trabajan con la instalación manual descrita en los apuntes.
 
 | Servicio | Procesos | Puertos en el anfitrión |
 |---|---|---|
 | `master` | NameNode, SecondaryNameNode, ResourceManager | 9870 (web HDFS), 8088 (web YARN), 9000 (RPC HDFS) |
 | `datanode1`, `datanode2`, `datanode3` | DataNode + NodeManager | — |
+| `formatos` (bloque 05, aparte) | Python 3.12 con pandas, pyarrow y fastavro (se usa y se borra) | — |
+| `postgres-vector` (bloque 06, aparte) | PostgreSQL 17 + pgvector 0.8.1 | 5432 |
 | `hiveserver2` (bloque 07, aparte) | HiveServer2 + metastore Derby | 10000 (JDBC), 10002 (web Hive) |
 
 - Imagen `bda-m01-hadoop:3.4.1-r3`: Java 11, Hadoop 3.4.1 y Python 3 (para Hadoop Streaming).
@@ -18,7 +20,7 @@ Clúster Hadoop 3.4.1 (HDFS + YARN) para los bloques **03 YARN** y **04 MapReduc
 - Docker y Docker Compose v2.
 - Make (opcional: todas las órdenes tienen su equivalente `docker compose`).
 - **Memoria**: el clúster ocupa unos 3,2 GB en reposo y unos 3,6 GB ejecutando un trabajo. En Docker Desktop asigna al menos 6 GB (Settings → Resources).
-- Los puertos 9870, 8088 y 9000 deben estar libres (y 10000 y 10002 para Hive). Para el contenedor de los bloques 01–02 antes de empezar:
+- Los puertos 9870, 8088 y 9000 deben estar libres (5432 para PostgreSQL; 10000 y 10002 para Hive). Para el contenedor de los bloques 01–02 antes de empezar:
 
 ```bash
 docker stop --time 45 hadoop-manual
@@ -33,7 +35,7 @@ make up        # construye la imagen, levanta los 4 servicios y espera a que est
 make report    # hdfs dfsadmin -report + yarn node -list
 make shell     # shell en master como usuario hadoop
 make test      # prueba de humo: 3 nodos, wordcount en YARN y Streaming con Python
-make down      # para el clúster conservando los datos
+make down      # para todos los servicios del módulo (clúster, Hive, PostgreSQL) conservando los datos
 make help      # todas las opciones
 ```
 
@@ -76,6 +78,53 @@ Después el fichero aparece en el explorador web.
 make copiar-mapreduce
 ```
 
+### Formatos de datos (bloque 05)
+
+La práctica de Python no necesita Python en el equipo: se ejecuta en un contenedor de usar y tirar (`formatos/compose.yaml`, imagen `bda-m01-formatos:3.12-r1`) con Python 3.12.8, pandas 2.2.3, pyarrow 18.1.0 (Parquet y ORC) y fastavro 1.10.0 (Avro). No depende del clúster Hadoop.
+
+El contenedor monta esta carpeta (`modulo01/`) en `/lab`: lee `mapreduce/ventas.csv` y escribe los resultados en `trabajo/formatos/`, que aparecen también en el anfitrión. `trabajo/` está ignorado por Git.
+
+```bash
+make formatos        # ejecuta formatos/comparar_formatos.py (CSV → Parquet, esquema, lectura selectiva)
+make formatos-shell  # shell en /lab con python, pandas, pyarrow y fastavro
+make test-formatos   # prueba de humo: versiones, Parquet, ORC y Avro
+```
+
+Equivalentes sin Make:
+
+```bash
+docker compose -f formatos/compose.yaml run --rm --build formatos python formatos/comparar_formatos.py
+docker compose -f formatos/compose.yaml run --rm --build formatos bash
+```
+
+Dentro de la shell, `python` abre el intérprete y `python fichero.py` ejecuta un programa. Lo que se guarde fuera de `/lab` se pierde al salir.
+
+### PostgreSQL + pgvector (bloque 06)
+
+PostgreSQL 17 con la extensión pgvector (`postgres/compose.yaml`, imagen `pgvector/pgvector:0.8.1-pg17`), independiente del clúster. El contenedor se llama `postgres-vector`, así que las órdenes `docker exec postgres-vector ...` de los apuntes funcionan tal cual. Credenciales solo para el laboratorio: usuario `alumno`, contraseña `alumno`, base `bigdata`. La base **se conserva** en un volumen entre sesiones.
+
+```bash
+make pg-up       # levanta PostgreSQL y espera a que acepte conexiones
+make pg-psql     # psql como alumno en bigdata (salir con \q)
+make pg-dump     # guarda la base en trabajo/bigdata-m01.sql
+make pg-restore  # carga trabajo/bigdata-m01.sql en una base nueva (tras pg-clean)
+make test-pg     # prueba de humo en una base temporal (no toca bigdata)
+make pg-down     # para PostgreSQL y conserva la base
+make pg-clean    # ⚠️ borra la base: guarda antes con make pg-dump
+```
+
+Equivalentes sin Make:
+
+```bash
+docker compose -f postgres/compose.yaml up -d --wait
+docker exec -it postgres-vector psql -U alumno -d bigdata
+docker exec postgres-vector pg_dump -U alumno -d bigdata -f /tmp/bigdata-m01.sql
+docker cp postgres-vector:/tmp/bigdata-m01.sql ./bigdata-m01.sql
+docker compose -f postgres/compose.yaml down
+```
+
+Si el puerto 5432 está ocupado por un PostgreSQL instalado en el equipo, para ese servicio o cambia el puerto del anfitrión en `postgres/compose.yaml` (p. ej. `"127.0.0.1:5433:5432"`). Las órdenes con `docker exec` no usan ese puerto.
+
 ### Hive (bloque 07)
 
 Hive es un Compose aparte (`hive/compose.yaml`, proyecto `m01-hive`) que se une a la red del clúster (`m01-yarn_default`): **levanta antes el clúster** con `make up`. Guarda las tablas en HDFS (`/user/hive/...`) y el catálogo en un metastore Derby con volumen propio. Las consultas se ejecutan con **MapReduce local dentro de HiveServer2**, no en YARN: en este bloque se estudian SQL y almacenamiento.
@@ -115,6 +164,16 @@ modulo01/
 ├── Makefile
 ├── prueba.sh             # prueba de humo (make test)
 ├── prueba-hive.sh        # prueba de humo de Hive (make test-hive)
+├── prueba-formatos.sh    # prueba de humo del entorno Python (make test-formatos)
+├── prueba-postgres.sh    # prueba de humo de PostgreSQL (make test-pg)
+├── trabajo/              # resultados del alumnado (ignorado por Git; se crea al usarlo)
+├── formatos/
+│   ├── compose.yaml      # proyecto m01-formatos (contenedor de usar y tirar)
+│   ├── Dockerfile        # python:3.12.8-slim + requirements.txt
+│   ├── requirements.txt  # pandas, numpy, pyarrow y fastavro con versión fija
+│   └── comparar_formatos.py
+├── postgres/
+│   └── compose.yaml      # proyecto m01-postgres, contenedor postgres-vector
 ├── hadoop/
 │   ├── compose.yaml      # proyecto m01-yarn
 │   ├── base/             # Dockerfile + entrypoint.sh (arranque por roles)
@@ -145,12 +204,14 @@ Los cuatro contenedores comparten CPU, memoria y disco del mismo equipo. Por tan
 - aumento real de capacidad ni de rendimiento al añadir nodos;
 - tolerancia a la caída del equipo anfitrión o del disco físico;
 - alta disponibilidad del NameNode, que aquí es un punto único de fallo;
+- ganancia de tamaño o velocidad de Parquet frente a CSV: con una muestra de tres filas, Parquet ocupa más por sus metadatos;
+- rendimiento de búsqueda vectorial: los vectores de práctica tienen 3 dimensiones inventadas, no salen de un modelo de *embeddings*;
 - rendimiento de Hive ni ejecución distribuida de sus consultas: usa MapReduce local y un metastore Derby de una sola instancia (en producción, un metastore compartido con MySQL o PostgreSQL).
 
 ## Limpieza
 
 ```bash
-make clean   # docker compose down -v (Hive y clúster)
+make clean   # docker compose down -v (PostgreSQL, Hive y clúster)
 ```
 
-⚠️ Borra los volúmenes: se pierden el NameNode formateado, todos los ficheros de HDFS y el catálogo de Hive. No lo uses para diagnosticar problemas; usa antes `make down` y `make up`.
+⚠️ Borra los volúmenes: se pierden el NameNode formateado, todos los ficheros de HDFS, el catálogo de Hive y la base PostgreSQL. `trabajo/` no se toca. No lo uses para diagnosticar problemas; usa antes `make down` y `make up`.

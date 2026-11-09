@@ -17,7 +17,7 @@ Los laboratorios se irán añadiendo a medida que avance la asignatura, un direc
 
 | Módulo | Contenido | Laboratorio |
 |---|---|---|
-| [modulo01](modulo01/README.md) | Almacenamiento y ecosistema de datos | Clúster Hadoop 3.4.1: HDFS + YARN, 1 master + 3 workers (bloques 03–04) · Hive 4.0.1 (bloque 07) |
+| [modulo01](modulo01/README.md) | Almacenamiento y ecosistema de datos | Clúster Hadoop 3.4.1: HDFS + YARN, 1 master + 3 workers (bloques 03–04) · Python para formatos (05) · PostgreSQL + pgvector (06) · Hive 4.0.1 (07) |
 
 ## Requisitos
 

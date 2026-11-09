@@ -1,0 +1,32 @@
+# PostgreSQL + pgvector de M01 (bloque 06): tablas relacionales y vectores en el mismo servidor.
+# Independiente del clúster Hadoop. La base se conserva en un volumen entre sesiones.
+# Credenciales solo para el laboratorio local (puerto publicado únicamente en 127.0.0.1).
+name: m01-postgres
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.1-pg17
+    # Mismo nombre que en los apuntes: "docker exec postgres-vector ..." sigue funcionando.
+    container_name: postgres-vector
+    environment:
+      POSTGRES_USER: alumno
+      POSTGRES_PASSWORD: alumno
+      POSTGRES_DB: bigdata
+    ports:
+      - "127.0.0.1:5432:5432" # PostgreSQL (psql, clientes SQL del anfitrión)
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alumno -d bigdata"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 5s
+
+volumes:
+  postgres-data:

@@ -1,0 +1,16 @@
+# Entorno Python del bloque 05 (formatos de datos): contenedor de usar y tirar (run --rm).
+# Monta modulo01/ en /lab: lee mapreduce/ventas.csv y escribe los resultados en trabajo/formatos/.
+# Sin puertos ni red con el clúster: es independiente de Hadoop.
+name: m01-formatos
+
+services:
+  formatos:
+    build: .
+    image: bda-m01-formatos:3.12-r1
+    working_dir: /lab
+    volumes:
+      - ..:/lab
+    deploy:
+      resources:
+        limits:
+          memory: 1g
